@@ -48,11 +48,11 @@ def generate_launch_description():
             ]
         ),
 
-        # 3. Actuator Simulation (Replace with real driver later)
-        Node(
-            package='morphing_airfoil',
-            executable='actuator_sim',
-            name='actuator_driver',
-            output='screen'
-        )
+        # 3. Actuator Simulation (REMOVED: Handled by sensor_sim)
+        # Node(
+        #     package='morphing_airfoil',
+        #     executable='actuator_sim',
+        #     name='actuator_driver',
+        #     output='screen'
+        # )
     ])

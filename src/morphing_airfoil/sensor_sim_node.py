@@ -6,10 +6,11 @@ import math
 import time
 import serial
 
-class SensorSimNode(Node):
+class ArduinoInterfaceNode(Node):
     """
     Reads from Arduino via Serial (Lift & Airspeed).
-    If 'use_sim' is True, generates fake data.
+    Writes to Arduino via Serial (Servo Angle).
+    If 'use_sim' is True, generates fake data and prints commands.
     """
     def __init__(self):
         super().__init__('sensor_driver')
@@ -23,9 +24,19 @@ class SensorSimNode(Node):
         self.serial_port = self.get_parameter('serial_port').value
         self.baud_rate = self.get_parameter('baud_rate').value
 
-        # Publishers
+        # Publishers (Sensors)
         self.lift_pub = self.create_publisher(Float32, 'sensors/lift', 10)
+        self.lift_left_pub = self.create_publisher(Float32, 'sensors/lift/left', 10)
+        self.lift_right_pub = self.create_publisher(Float32, 'sensors/lift/right', 10)
         self.airspeed_pub = self.create_publisher(Float32, 'sensors/airspeed', 10)
+
+        # Subscribers (Actuators)
+        self.subscription = self.create_subscription(
+            Float32,
+            'actuators/camber_cmd',
+            self.actuator_callback,
+            10
+        )
 
         self.ser = None
 
@@ -35,9 +46,9 @@ class SensorSimNode(Node):
         
         if self.use_sim:
             self.start_time = self.get_clock().now().nanoseconds / 1e9
-            self.get_logger().info("Sensor Node Started in SIMULATION MODE")
+            self.get_logger().info("Arduino Interface Started in SIMULATION MODE")
         else:
-            self.get_logger().info(f"Sensor Node Started in HARDWARE MODE (Serial: {self.serial_port})")
+            self.get_logger().info(f"Arduino Interface Started in HARDWARE MODE (Serial: {self.serial_port})")
 
         # Run at 50Hz
         self.timer = self.create_timer(0.02, self.timer_callback)
@@ -51,44 +62,81 @@ class SensorSimNode(Node):
             self.get_logger().warn("Reverting to SIMULATION MODE due to connection failure.")
             self.use_sim = True
 
+    def actuator_callback(self, msg):
+        angle = msg.data
+        if self.use_sim:
+            self.get_logger().info(f"Simulated Write: Servo Angle {angle:.2f}")
+        else:
+            if self.ser and self.ser.is_open:
+                try:
+                    # Send command: "S:90\n"
+                    command = f"S:{int(angle)}\n"
+                    self.ser.write(command.encode('utf-8'))
+                except Exception as e:
+                    self.get_logger().error(f"Serial Write Error: {e}")
+
     def timer_callback(self):
         current_lift = 0.0
+        lift_left = 0.0
+        lift_right = 0.0
         current_airspeed = 0.0
 
         if self.use_sim:
             # --- SIMULATION LOGIC ---
             t = (self.get_clock().now().nanoseconds / 1e9) - self.start_time
-            current_lift = 5.0 + 2.0 * math.sin(t) + random.uniform(-0.1, 0.1)
+            total_lift = 5.0 + 2.0 * math.sin(t) + random.uniform(-0.1, 0.1)
+            
+            lift_left = total_lift / 2.0
+            lift_right = total_lift / 2.0
+            current_lift = total_lift
+            
             current_airspeed = 15.0 + random.uniform(-0.5, 0.5)
         else:
             # --- HARDWARE LOGIC (SERIAL) ---
             if self.ser and self.ser.is_open:
                 try:
-                    # Read line: "L:5.23,A:12.50"
+                    # Read line: "LL:5.23,LR:4.80,A:12.50"
                     if self.ser.in_waiting > 0:
                         line = self.ser.readline().decode('utf-8').strip()
                         # Simple parsing
                         parts = line.split(',')
                         for part in parts:
-                            if part.startswith('L:'):
-                                current_lift = float(part.split(':')[1])
+                            if part.startswith('LL:'):
+                                lift_left = float(part.split(':')[1])
+                            elif part.startswith('LR:'):
+                                lift_right = float(part.split(':')[1])
                             elif part.startswith('A:'):
                                 current_airspeed = float(part.split(':')[1])
+                        
+                        # Calculate Total Lift
+                        current_lift = lift_left + lift_right
+
                 except Exception as e:
                     self.get_logger().warn(f"Serial Read Error: {e}")
 
-        # Publish
+        # Publish Total Lift
         lift_msg = Float32()
         lift_msg.data = float(current_lift)
         self.lift_pub.publish(lift_msg)
 
+        # Publish Left Lift
+        lift_left_msg = Float32()
+        lift_left_msg.data = float(lift_left)
+        self.lift_left_pub.publish(lift_left_msg)
+
+        # Publish Right Lift
+        lift_right_msg = Float32()
+        lift_right_msg.data = float(lift_right)
+        self.lift_right_pub.publish(lift_right_msg)
+
+        # Publish Airspeed
         speed_msg = Float32()
         speed_msg.data = float(current_airspeed)
         self.airspeed_pub.publish(speed_msg)
 
 def main(args=None):
     rclpy.init(args=args)
-    node = SensorSimNode()
+    node = ArduinoInterfaceNode()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:

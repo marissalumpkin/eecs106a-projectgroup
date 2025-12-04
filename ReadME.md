@@ -47,10 +47,25 @@ Before running ROS, you must set up the Arduino Nano ESP32 to read sensors and s
     *   Click **Upload**.
 
 ### Wiring Guide
-*   **HX711 DOUT** -> Pin 2
-*   **HX711 SCK** -> Pin 3
-*   **Pitot Tube Signal** -> Pin A0
+
+#### Left Load Cell (HX711 #1)
+*   **DT** -> Pin 7
+*   **SCK** -> Pin 4
 *   **VCC/GND** -> 3.3V/GND
+
+#### Right Load Cell (HX711 #2)
+*   **DT** -> Pin 8
+*   **SCK** -> Pin 9
+*   **VCC/GND** -> 3.3V/GND
+
+#### Pitot Tube
+*   **Signal** -> Pin A0
+*   **VCC/GND** -> 3.3V/GND
+
+#### Servo (HD0521MG)
+*   **Signal (Orange/Yellow)** -> Pin 5
+*   **Power (Red)** -> VBUS (5V)
+*   **GND (Brown)** -> GND
 
 ## 🏃‍♂️ How to Run
 
