@@ -2,110 +2,85 @@
 
 This repository contains the ROS 2 control package for the EECS 106A Morphing Airfoil project. It implements a PID controller to adjust wing camber based on lift and airspeed sensor feedback.
 
+## 🔌 Hardware Requirements
+
+*   **Microcontroller:** Arduino Nano ESP32
+*   **Load Cell:** ShangHJ Digital Load Cell (5kg)
+*   **ADC Module:** HX711 (for Load Cell)
+*   **Pitot Tube:** Analog Airspeed Sensor
+*   **Computer:** Mac (Apple Silicon) or Linux machine running ROS 2
+
 ## 🚀 Quick Start
 
 **Prerequisite:** You must have `conda` (Miniforge recommended) installed.
 
-### Setup Environment
+### 1. Setup Environment
 ```bash
 conda config --add channels conda-forge
 conda config --add channels robostack-staging
 conda config --remove channels defaults
 conda create -n ros ros-humble-desktop
 conda activate ros
-conda install compilers cmake pkg-config make ninja colcon-common-extensions
+conda install compilers cmake pkg-config make ninja colcon-common-extensions pyserial
 ```
 
-### Build & Run
+### 2. Build the Workspace
 ```bash
 # From the root of your workspace (e.g., ~/ros2_ws)
-colcon build --symlink-install
-source install/setup.zsh   # use setup.bash if on Linux/Intel Mac
-ros2 launch morphing_airfoil airfoil.launch.py
+colcon build
+source install/setup.zsh
 ```
 
-## 🛠 Detailed Installation Guide
+## 🤖 Arduino Setup
 
-Installing ROS 2 on Apple Silicon can be tricky. We use **RoboStack**, which runs ROS 2 inside a Conda environment. This is much faster than a Virtual Machine.
+Before running ROS, you must set up the Arduino Nano ESP32 to read sensors and send data over USB.
 
-### 1. Install Miniforge or Conda
-If you don't have Conda, install Miniforge (specifically `Miniforge3-MacOSX-arm64`).
+1.  **Install Arduino IDE:** Download and install the latest Arduino IDE.
+2.  **Install Libraries:**
+    *   Open Arduino IDE.
+    *   Go to **Sketch -> Include Library -> Manage Libraries**.
+    *   Search for and install **"HX711 Arduino Library"** (by Bogdan Necula).
+3.  **Upload Code:**
+    *   Open `src/arduino_sensors/arduino_sensors.ino`.
+    *   Connect your Arduino Nano ESP32 via USB.
+    *   Select your board and port in **Tools -> Port**.
+    *   Click **Upload**.
 
-### 2. Configure Channels
-Tell Conda where to find robotics packages. Run these commands in your terminal:
-```bash
-conda config --add channels conda-forge
-conda config --add channels robostack-staging
-conda config --remove channels defaults
-```
-
-### 3. Create the ROS Environment
-Create an isolated environment named `ros` and install ROS 2 Humble.
-```bash
-conda create -n ros ros-humble-desktop
-```
-
-### 4. Install Build Tools
-You need specific compilers to build our custom Python package.
-```bash
-conda activate ros
-conda install compilers cmake pkg-config make ninja colcon-common-extensions
-```
-
-> **Troubleshooting:** If you see an error about `Symbol not found: _EVP_DigestSqueeze` after installation, you can safely ignore it. It is a known bug with the signature verifier on Macs and does not affect ROS.
-
-## 📦 How to Build the Code
-
-1. **Navigate to your workspace:**
-    ```bash
-    mkdir -p ~/ros2_ws/src
-    cd ~/ros2_ws/src
-    ```
-
-2. **Clone this repo:**
-    (Assuming you are inside `src`)
-    ```bash
-    git clone <YOUR_REPO_URL>
-    ```
-
-3. **Build:**
-    Go back to the root workspace folder and build.
-    ```bash
-    cd ~/ros2_ws
-    colcon build --symlink-install
-    ```
+### Wiring Guide
+*   **HX711 DOUT** -> Pin 2
+*   **HX711 SCK** -> Pin 3
+*   **Pitot Tube Signal** -> Pin A0
+*   **VCC/GND** -> 3.3V/GND
 
 ## 🏃‍♂️ How to Run
 
-### 1. Activate the Environment
-Every time you open a new terminal, you must run:
-```bash
-conda activate ros
-source ~/ros2_ws/install/setup.zsh
-```
-
-### 2. Launch the System
-This starts the Controller, Sensor Simulation, and Actuator Simulation nodes all at once.
+### Option A: Simulation Mode (Default)
+Run this to test the logic without hardware connected.
 ```bash
 ros2 launch morphing_airfoil airfoil.launch.py
 ```
+*You should see: `[INFO] ... Sensor Node Started in SIMULATION MODE`*
 
-### 3. Verify Connections
-To see the node graph (topics and connections):
-```bash
-rqt_graph
-```
+### Option B: Hardware Mode
+Run this when the Arduino is connected.
+
+1.  **Find your Serial Port:**
+    ```bash
+    ls /dev/tty.*
+    # Look for something like /dev/tty.usbmodem... or /dev/ttyUSB0
+    ```
+
+2.  **Launch:**
+    ```bash
+    ros2 launch morphing_airfoil airfoil.launch.py use_sim:=False serial_port:=/dev/tty.usbmodem1234
+    ```
+    *(Replace `/dev/tty.usbmodem1234` with your actual port)*
 
 ## 🧪 Running Unit Tests
 
-We have unit tests for the PID logic to ensure the math is correct before connecting real hardware.
+We have unit tests for the PID logic to ensure the math is correct.
 
 ```bash
-cd ~/ros2_ws
 colcon test --packages-select morphing_airfoil
-```
-
-To see the results:
-```bash
 colcon test-result --all
 ```
