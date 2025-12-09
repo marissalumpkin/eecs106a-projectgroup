@@ -31,8 +31,6 @@ class ArduinoInterfaceNode(Node):
 
         # Publishers (Sensors)
         self.lift_pub = self.create_publisher(Float32, 'sensors/lift', 10)
-        self.lift_left_pub = self.create_publisher(Float32, 'sensors/lift/left', 10)
-        self.lift_right_pub = self.create_publisher(Float32, 'sensors/lift/right', 10)
         self.airspeed_pub = self.create_publisher(Float32, 'sensors/airspeed', 10)
 
         # Subscribers (Actuators)
@@ -81,62 +79,40 @@ class ArduinoInterfaceNode(Node):
                     self.get_logger().error(f"Serial Write Error: {e}")
 
     def timer_callback(self):
-        #current_lift = 0.0
-        #lift_left = 0.0
-        #lift_right = 0.0
-        #current_airspeed = 0.0
+        current_lift = 0.0
+        current_airspeed = 0.0
 
         if self.use_sim:
             # --- SIMULATION LOGIC ---
             t = (self.get_clock().now().nanoseconds / 1e9) - self.start_time
-            total_lift = 5.0 + 2.0 * math.sin(t) + random.uniform(-0.1, 0.1)
-            
-            self.lift_left = total_lift / 2.0
-            self.lift_right = total_lift / 2.0
-            self.current_lift = total_lift
-            
-            self.current_airspeed = 15.0 + random.uniform(-0.5, 0.5)
+            current_lift = 5.0 + 2.0 * math.sin(t) + random.uniform(-0.1, 0.1)
+            current_airspeed = 15.0 + random.uniform(-0.5, 0.5)
         else:
             # --- HARDWARE LOGIC (SERIAL) ---
             if self.ser and self.ser.is_open:
                 try:
-                    # Read line: "LL:5.23,LR:4.80,A:12.50"
-                    if self.ser and self.ser.is_open:
-                        if self.ser.in_waiting > 0:
-                            line = self.ser.readline().decode('utf-8').strip()
-                            parts = line.split(',')
-
-                            for part in parts:
-                                if part.startswith('LL:'):
-                                    self.lift_left = float(part.split(':')[1])
-                                elif part.startswith('LR:'):
-                                    self.lift_right = float(part.split(':')[1])
-                                elif part.startswith('A:'):
-                                    self.current_airspeed = float(part.split(':')[1])
-
-                            self.current_lift = self.lift_left + self.lift_right
-
+                    # Read line: "L:5.23,A:12.50"
+                    if self.ser.in_waiting > 0:
+                        line = self.ser.readline().decode('utf-8').strip()
+                        # Simple parsing
+                        parts = line.split(',')
+                        for part in parts:
+                            if part.startswith('L:'):
+                                current_lift = float(part.split(':')[1])
+                            elif part.startswith('A:'):
+                                current_airspeed = float(part.split(':')[1])
+                        
                 except Exception as e:
                     self.get_logger().warn(f"Serial Read Error: {e}")
 
         # Publish Total Lift
         lift_msg = Float32()
-        lift_msg.data = float(self.current_lift)
+        lift_msg.data = float(current_lift)
         self.lift_pub.publish(lift_msg)
-
-        # Publish Left Lift
-        lift_left_msg = Float32()
-        lift_left_msg.data = float(self.lift_left)
-        self.lift_left_pub.publish(lift_left_msg)
-
-        # Publish Right Lift
-        lift_right_msg = Float32()
-        lift_right_msg.data = float(self.lift_right)
-        self.lift_right_pub.publish(lift_right_msg)
 
         # Publish Airspeed
         speed_msg = Float32()
-        speed_msg.data = float(self.current_airspeed)
+        speed_msg.data = float(current_airspeed)
         self.airspeed_pub.publish(speed_msg)
 
 def main(args=None):
