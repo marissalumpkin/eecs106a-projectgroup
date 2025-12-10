@@ -79,13 +79,12 @@ class ArduinoInterfaceNode(Node):
                     self.get_logger().error(f"Serial Write Error: {e}")
 
     def timer_callback(self):
-        current_lift = 0.0
         current_airspeed = 0.0
 
         if self.use_sim:
             # --- SIMULATION LOGIC ---
             t = (self.get_clock().now().nanoseconds / 1e9) - self.start_time
-            current_lift = 5.0 + 2.0 * math.sin(t) + random.uniform(-0.1, 0.1)
+            self.current_lift = 5.0 + 2.0 * math.sin(t) + random.uniform(-0.1, 0.1)
             current_airspeed = 15.0 + random.uniform(-0.5, 0.5)
         else:
             # --- HARDWARE LOGIC (SERIAL) ---
@@ -98,7 +97,7 @@ class ArduinoInterfaceNode(Node):
                         parts = line.split(',')
                         for part in parts:
                             if part.startswith('L:'):
-                                current_lift = float(part.split(':')[1])
+                                self.current_lift = float(part.split(':')[1])
                             elif part.startswith('A:'):
                                 current_airspeed = float(part.split(':')[1])
                         
@@ -107,7 +106,7 @@ class ArduinoInterfaceNode(Node):
 
         # Publish Total Lift
         lift_msg = Float32()
-        lift_msg.data = float(current_lift)
+        lift_msg.data = float(self.current_lift)
         self.lift_pub.publish(lift_msg)
 
         # Publish Airspeed
