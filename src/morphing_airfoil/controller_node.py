@@ -30,6 +30,7 @@ class AirfoilController(Node):
         self.camber_pub = self.create_publisher(Float32, 'actuators/camber_cmd', 10)
 
         self.last_time = self.get_clock().now()
+        self.last_pub_time = self.get_clock().now()
         self.get_logger().info(f"Controller Started. Target Lift: {self.target_lift}")
 
     def lift_callback(self, msg):
@@ -44,6 +45,12 @@ class AirfoilController(Node):
         
         # Compute control signal (Camber Angle)
         camber_cmd = self.pid.update(self.target_lift, current_lift, dt)
+
+        # Rate Limiting: Only publish every 0.1s (10Hz) to avoid clogging Serial
+        if (current_time - self.last_pub_time).nanoseconds / 1e9 < 0.1:
+            return
+            
+        self.last_pub_time = current_time
 
         # Publish command
         cmd_msg = Float32()
