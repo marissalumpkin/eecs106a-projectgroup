@@ -28,10 +28,7 @@ def generate_launch_description():
             name='airfoil_controller',
             output='screen',
             parameters=[
-                {'kp': 2.5},
-                {'ki': 0.1},
-                {'kd': 0.5},
-                {'target_lift': 6.0}
+                {'reactive_gain': 0.5} # Tune this! (Degrees per Gram)
             ]
         ),
         
