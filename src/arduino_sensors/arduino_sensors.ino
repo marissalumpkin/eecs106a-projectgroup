@@ -6,7 +6,8 @@
 const int DOUT_PIN = 7;
 const int SCK_PIN = 4;
 
-
+// Pitot Tube (Analog)
+const int PITOT_PIN = A0;
 
 // Servo
 const int SERVO_PIN = 5;
@@ -47,10 +48,17 @@ void loop() {
   // 2. Read Lift
   float lift = scale.get_units(1); 
 
-  // 3. Send over Serial
-  // Format: "L:5.23"
+  // 3. Read Airspeed (Pitot Tube)
+  int adc_val = analogRead(PITOT_PIN);
+  float voltage = (adc_val / 4095.0) * 3.3; 
+  float airspeed_approx = voltage * 10.0; 
+
+  // 4. Send over Serial
+  // Format: "L:5.23,A:12.50"
   Serial.print("L:");
-  Serial.println(lift, 2);
+  Serial.print(lift, 2);
+  Serial.print(",A:");
+  Serial.println(airspeed_approx, 2);
 
   delay(20); // ~50Hz
 }
