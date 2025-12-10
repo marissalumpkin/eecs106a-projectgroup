@@ -79,13 +79,12 @@ class ArduinoInterfaceNode(Node):
                     self.get_logger().error(f"Serial Write Error: {e}")
 
     def timer_callback(self):
-        current_airspeed = 0.0
 
         if self.use_sim:
             # --- SIMULATION LOGIC ---
             t = (self.get_clock().now().nanoseconds / 1e9) - self.start_time
             self.current_lift = 5.0 + 2.0 * math.sin(t) + random.uniform(-0.1, 0.1)
-            current_airspeed = 15.0 + random.uniform(-0.5, 0.5)
+            self.current_airspeed = 15.0 + random.uniform(-0.5, 0.5)
         else:
             # --- HARDWARE LOGIC (SERIAL) ---
             if self.ser and self.ser.is_open:
@@ -99,7 +98,7 @@ class ArduinoInterfaceNode(Node):
                             if part.startswith('L:'):
                                 self.current_lift = float(part.split(':')[1])
                             elif part.startswith('A:'):
-                                current_airspeed = float(part.split(':')[1])
+                                self.current_airspeed = float(part.split(':')[1])
                         
                 except Exception as e:
                     self.get_logger().warn(f"Serial Read Error: {e}")
@@ -111,7 +110,7 @@ class ArduinoInterfaceNode(Node):
 
         # Publish Airspeed
         speed_msg = Float32()
-        speed_msg.data = float(current_airspeed)
+        speed_msg.data = float(self.current_airspeed)
         self.airspeed_pub.publish(speed_msg)
 
 def main(args=None):
