@@ -24,6 +24,7 @@ setup(
     entry_points={
         'console_scripts': [
             'controller = morphing_airfoil.controller_node:main',
+            'pid_controller = morphing_airfoil.pid_controller_node:main',
             'sensor_sim = morphing_airfoil.sensor_sim_node:main',
             'actuator_sim = morphing_airfoil.actuator_sim_node:main',
         ],

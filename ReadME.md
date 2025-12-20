@@ -86,6 +86,8 @@ Run this when the Arduino is connected.
     ```
     *(Replace `/dev/tty.usbmodem1234` with your actual port)*
 
+    *Also add either `controller_type:=pid` for pid or `controller_type:=reactive` for reactive controller*
+
 ## 🧪 Running Unit Tests
 
 We have unit tests for the PID logic to ensure the math is correct.

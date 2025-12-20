@@ -57,3 +57,4 @@ echo "  2. Check ROS_DOMAIN_ID matches in both terminals"
 echo "  3. Wait a few seconds after launching - ROS 2 discovery takes time"
 echo "  4. Check launch output for errors"
 
+

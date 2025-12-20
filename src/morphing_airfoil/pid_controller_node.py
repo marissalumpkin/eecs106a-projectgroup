@@ -3,18 +3,29 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 import time
 import statistics
+from .pid import PIDController
 
-class AirfoilController(Node):
+class PIDAirfoilController(Node):
     def __init__(self):
-        super().__init__('airfoil_controller')
+        super().__init__('pid_airfoil_controller')
 
         # Declare parameters
-        self.declare_parameter('reactive_gain', 5.0)
+        self.declare_parameter('kp', 0.1)  # Proportional gain
+        self.declare_parameter('ki', 0.05)   # Integral gain
+        self.declare_parameter('kd', 0.05)  # Derivative gain
+        self.declare_parameter('target_lift', 5.0)  # Target lift in Newtons
         self.declare_parameter('calibration_duration', 5.0) # Seconds to wait/calibrate
 
         # Get params
-        self.reactive_gain = self.get_parameter('reactive_gain').value
+        kp = self.get_parameter('kp').value
+        ki = self.get_parameter('ki').value
+        kd = self.get_parameter('kd').value
+        self.target_lift = self.get_parameter('target_lift').value
         self.calibration_duration = self.get_parameter('calibration_duration').value
+        
+        # Initialize PID Controller
+        # Servo limits: 0.0 to 180.0 degrees
+        self.pid = PIDController(kp, ki, kd, min_out=0.0, max_out=180.0)
 
         # Calibration State
         self.is_calibrated = False
@@ -28,7 +39,8 @@ class AirfoilController(Node):
         self.camber_pub = self.create_publisher(Float32, 'actuators/camber_cmd', 10)
 
         self.last_pub_time = self.get_clock().now()
-        self.get_logger().info(f"Reactive Controller Started. Gain: {self.reactive_gain}. Calibrating for {self.calibration_duration}s...")
+        self.last_lift_time = self.get_clock().now()
+        self.get_logger().info(f"PID Controller Started. Kp={kp}, Ki={ki}, Kd={kd}, Target Lift={self.target_lift}N. Calibrating for {self.calibration_duration}s...")
 
     def lift_callback(self, msg):
         current_time = self.get_clock().now()
@@ -54,25 +66,31 @@ class AirfoilController(Node):
                     self.start_time = current_time # Reset timer
                     return
 
-        # --- REACTIVE CONTROL LOGIC ---
+        # --- PID CONTROL LOGIC ---
+        
+        # Calculate time delta for PID
+        dt = (current_time - self.last_lift_time).nanoseconds / 1e9
         
         # Rate Limiting: Only publish every 0.1s (10Hz)
         if (current_time - self.last_pub_time).nanoseconds / 1e9 < 0.1:
             return
+        
+        # Safeguard against invalid dt
+        if dt <= 0.0:
+            return
 
-        # 1. Subtract Baseline (Auto-Tare)
+        # 1. Subtract Baseline (Auto-Tare) to get adjusted lift
         adjusted_lift = current_lift - self.baseline_lift
         
-        # 2. Angle = |Force| * Gain
-        camber_cmd = abs(adjusted_lift) * self.reactive_gain
-
-        # Clamp to Safe Limits (0 to 180 degrees)
-        if camber_cmd < 0.0:
-            camber_cmd = 0.0
-        elif camber_cmd > 180.0:
-            camber_cmd = 180.0
+        # 2. Calculate target (baseline + desired lift)
+        target_adjusted = self.target_lift
+        
+        # 3. Use PID to compute servo angle
+        # PID error = target - current (we want to increase lift when below target)
+        camber_cmd = self.pid.update(target_adjusted, adjusted_lift, dt)
 
         self.last_pub_time = current_time
+        self.last_lift_time = current_time
 
         # Publish command
         cmd_msg = Float32()
@@ -80,11 +98,11 @@ class AirfoilController(Node):
         self.camber_pub.publish(cmd_msg)
 
         # Log for debugging
-        self.get_logger().info(f"Raw: {current_lift:.0f} | Adj: {adjusted_lift:.0f} | Cmd: {camber_cmd:.0f}")
+        self.get_logger().info(f"Raw: {current_lift:.2f}N | Adj: {adjusted_lift:.2f}N | Target: {target_adjusted:.2f}N | Cmd: {camber_cmd:.1f}° | dt: {dt:.3f}s")
 
 def main(args=None):
     rclpy.init(args=args)
-    node = AirfoilController()
+    node = PIDAirfoilController()
     try:
         rclpy.spin(node)
     except KeyboardInterrupt:
@@ -95,3 +113,4 @@ def main(args=None):
 
 if __name__ == '__main__':
     main()
+
